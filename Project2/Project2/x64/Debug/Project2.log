@@ -1,0 +1,3 @@
+﻿  Task.cpp
+D:\5 semester\C++\Project2\Project2\Task.cpp(251,15): warning C4244: return: преобразование "WPARAM" в "int", возможна потеря данных
+  Project2.vcxproj -> D:\5 semester\C++\Project2\x64\Debug\Project2.exe
