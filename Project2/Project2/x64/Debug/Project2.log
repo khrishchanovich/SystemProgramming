@@ -1,3 +1,9 @@
 ﻿  Task.cpp
-D:\5 semester\C++\Project2\Project2\Task.cpp(251,15): warning C4244: return: преобразование "WPARAM" в "int", возможна потеря данных
+D:\5 semester\C++\Project2\Project2\Task.cpp(81,15): warning C4244: return: преобразование "WPARAM" в "int", возможна потеря данных
+D:\5 semester\C++\Project2\Project2\Task.cpp(257,68): warning C4311: приведение типов: усечение указателя из "HMENU" в "UINT"
+D:\5 semester\C++\Project2\Project2\Task.cpp(257,68): warning C4302: приведение типов: усечение из "HMENU" к "UINT"
+D:\5 semester\C++\Project2\Project2\Task.cpp(261,67): warning C4311: приведение типов: усечение указателя из "HMENU" в "UINT"
+D:\5 semester\C++\Project2\Project2\Task.cpp(261,67): warning C4302: приведение типов: усечение из "HMENU" к "UINT"
+D:\5 semester\C++\Project2\Project2\Task.cpp(266,68): warning C4311: приведение типов: усечение указателя из "HMENU" в "UINT"
+D:\5 semester\C++\Project2\Project2\Task.cpp(266,68): warning C4302: приведение типов: усечение из "HMENU" к "UINT"
   Project2.vcxproj -> D:\5 semester\C++\Project2\x64\Debug\Project2.exe
