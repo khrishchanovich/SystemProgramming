@@ -15,7 +15,7 @@ HMENU hSubMenuShape = CreatePopupMenu();
 HMENU hSubMenuMove = CreatePopupMenu();
 HMENU hSubMenuColor = CreatePopupMenu();
 
-COLORREF g_shapeColor = RGB(0, 255, 0);
+COLORREF g_shapeColor = RGB(255, 0 , 0);
 
 int g_startX = 400; // Начальные координаты X объекта
 int g_startY = 300; // Начальные координаты Y объекта

@@ -145,7 +145,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			// ќбновл€ем текст в текстовом поле (ID_EDIT) с текущим значением.
 			tempValue = currentValue;
 
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -171,7 +171,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			}
 			tempValue = currentValue;
 
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -197,7 +197,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			}
 			tempValue = currentValue;
 
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -223,7 +223,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			}
 			tempValue = currentValue;
 			
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -249,7 +249,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			}
 			tempValue = currentValue;
 			
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -275,7 +275,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			}
 			tempValue = currentValue;
 			
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -301,7 +301,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			}
 			tempValue = currentValue;
 			
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -327,7 +327,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			}
 			tempValue = currentValue;
 			
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -353,7 +353,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			}
 			tempValue = currentValue;
 			
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -379,7 +379,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			}
 			tempValue = currentValue;
 			
-			sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 			SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 		}
 		break;
@@ -479,7 +479,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 					}
 					break;
 				}
-				sprintf_s(buffer, sizeof(buffer), "%.2f", currentValue);
+				sprintf_s(buffer, sizeof(buffer), "%.4f", currentValue);
 				SetWindowTextA(GetDlgItem(hWnd, ID_EDIT), buffer);
 
 				tempValue = currentValue;
@@ -514,7 +514,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			{
 				double result = log2(tempValue);
 
-				sprintf_s(buffer, sizeof(buffer), "%.2f", result);
+				sprintf_s(buffer, sizeof(buffer), "%.4f", result);
 				SetWindowTextA(GetDlgItem(hWnd, ID_LOG2), buffer);
 			}
 			else 
@@ -529,7 +529,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			// sin
 			double result = sin(tempValue * PI / 180); // ѕреобразование угла в радианы
 			
-			sprintf_s(buffer, sizeof(buffer), "%.2f", result);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", result);
 			SetWindowTextA(GetDlgItem(hWnd, ID_SIN), buffer);
 		}
 		break;
@@ -538,7 +538,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			// cos
 			double result = cos(tempValue * PI / 180); 
 		
-			sprintf_s(buffer, sizeof(buffer), "%.2f", result);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", result);
 			SetWindowTextA(GetDlgItem(hWnd, ID_COS), buffer);
 		}
 		break;
@@ -547,7 +547,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			// tan
 			double result = tan(tempValue * PI / 180); 
 		
-			sprintf_s(buffer, sizeof(buffer), "%.2f", result);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", result);
 			SetWindowTextA(GetDlgItem(hWnd, ID_TAN), buffer);
 		}
 		break;
@@ -556,7 +556,7 @@ LRESULT CALLBACK SoftwareMainProcedure(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp
 			// cot
 			double result = 1.0 / tan(tempValue * PI / 180); 
 
-			sprintf_s(buffer, sizeof(buffer), "%.2f", result);
+			sprintf_s(buffer, sizeof(buffer), "%.4f", result);
 			SetWindowTextA(GetDlgItem(hWnd, ID_COT), buffer);
 		}
 		break;
