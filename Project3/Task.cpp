@@ -5,6 +5,7 @@
 #include <commctrl.h>
 #include <cstring>
 #include <string>
+#include <shlwapi.h>
 
 using namespace std;
 
@@ -15,16 +16,17 @@ using namespace std;
 
 #define IDM_COPY      1001
 #define IDM_DEL       1003
-#define IDM_CRC       1004
+#define IDM_MOVE       1004
+#define IDM_CREATE 1005
 
 #define ID_LISTVIEW_1   3001
 #define ID_LISTVIEW_2   3002
 
-#define ID_COMBOBOX_1    4001
-#define ID_COMBOBOX_2    4002
+#define ID_COMBOBOX_1   4001
+#define ID_COMBOBOX_2   4002
 
-#define ID_LABEL_3      5003
-#define ID_LABEL_4      5004
+#define ID_LABEL_3  5003
+#define ID_LABEL_4  5004
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM); // Обработчик соозений для главного окна приложения
 
@@ -47,19 +49,24 @@ static HWND hLabel_1, hLabel_2, hLabel_3, hLabel_4, hToolBar;
 
 // Создание панели инстурментов
 const int ImageListID = 0;
-const int numButtons = 3; // копировать - удалить / переместить
+const int numButtons = 4;
 const DWORD buttonStyles = BTNS_AUTOSIZE;
 
-const int bitmapSize = 16; // !!!!
+const int bitmapSize = 16;
+
+OPENFILENAME ofn;
+char szFileName[MAX_PATH];
 
 TBBUTTON tbButtons[numButtons] =
         {
-                {MAKELONG(STD_COPY, ImageListID), IDM_COPY,  TBSTATE_ENABLED,
-                        BTNS_AUTOSIZE, {0}, 0, (INT_PTR)"copy"},
-                {MAKELONG(STD_DELETE, ImageListID), IDM_DEL, TBSTATE_ENABLED,
-                        buttonStyles,  {0}, 0, (INT_PTR)"delete"},
-                {MAKELONG(STD_REPLACE, ImageListID), IDM_CRC,   TBSTATE_ENABLED,
-                        buttonStyles,  {0}, 0, (INT_PTR)"move"}
+                {MAKELONG(STD_COPY, ImageListID),    IDM_COPY,   TBSTATE_ENABLED,
+                        BTNS_AUTOSIZE, {0}, 0, (INT_PTR) "copy"},
+                {MAKELONG(STD_DELETE, ImageListID),  IDM_DEL,    TBSTATE_ENABLED,
+                        buttonStyles,  {0}, 0, (INT_PTR) "delete"},
+                {MAKELONG(STD_REPLACE, ImageListID), IDM_MOVE,   TBSTATE_ENABLED,
+                        buttonStyles,  {0}, 0, (INT_PTR) "move"},
+                {MAKELONG(STD_FILENEW, ImageListID), IDM_CREATE, TBSTATE_ENABLED,
+                        buttonStyles,  {0}, 0, (INT_PTR) "create"},
         };
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
@@ -74,7 +81,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     WndClass.lpfnWndProc = WndProc;
     WndClass.hInstance = hInstance;
     WndClass.hCursor = LoadCursor(NULL, IDC_ARROW);
-    WndClass.hbrBackground = (HBRUSH)CreateSolidBrush(RGB(230, 255, 0));
+    WndClass.hbrBackground = (HBRUSH) CreateSolidBrush(RGB(230, 255, 0));
     WndClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     WndClass.lpszMenuName = NULL;
     WndClass.lpszClassName = nameMC;
@@ -98,16 +105,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 }
 
 HWND CreateSimpleToolbar(HWND hWndParent) {
-    //создание тулбара
     HWND hWndToolbar = CreateWindowEx(0, TOOLBARCLASSNAME, NULL,
                                       WS_CHILD | TBSTYLE_WRAPABLE,
                                       0, 0, 0, 0,
                                       hWndParent, NULL, hInstance, NULL);
-    if (hWndToolbar == NULL) {
-        return NULL;
-    }
+    if (hWndToolbar == NULL) { return NULL; }
 
-    //создание списка картинок, для кнопок
     g_hImageList = ImageList_Create(
             bitmapSize, bitmapSize,
             ILC_COLOR16 | ILC_MASK,
@@ -118,7 +121,6 @@ HWND CreateSimpleToolbar(HWND hWndParent) {
 
     SendMessage(hWndToolbar, TB_LOADIMAGES, (WPARAM) IDB_STD_SMALL_COLOR,
                 (LPARAM) HINST_COMMCTRL);
-
 
     SendMessage(hWndToolbar, TB_BUTTONSTRUCTSIZE, (WPARAM) sizeof(TBBUTTON), 0);
     SendMessage(hWndToolbar, TB_ADDBUTTONS, (WPARAM) numButtons, (LPARAM) &tbButtons);
@@ -155,8 +157,8 @@ BOOL InitListViewImageLists(HWND hWndListView, int size, char c_dir[MAX_PATH]) {
     if (hFind == INVALID_HANDLE_VALUE) {
         MessageBox(0, "Error", "Not found", MB_OK | MB_ICONWARNING);
     } else {
-        do {//присваеваем атрибуты
-            if (strcmp(FindFileData.cFileName, ".") == 0) {//если диск
+        do {
+            if (strcmp(FindFileData.cFileName, ".") == 0) {
                 char buf1[MAX_PATH];
                 strcpy(buf1, c_dir);
                 strcat(buf1, FindFileData.cFileName);
@@ -177,7 +179,6 @@ BOOL InitListViewImageLists(HWND hWndListView, int size, char c_dir[MAX_PATH]) {
                 ImageList_AddIcon(hSmall, lp.hIcon);
                 DestroyIcon(lp.hIcon);
             }
-            //присваеваем иконки
             char buf1[MAX_PATH];
             strcpy(buf1, c_dir);
             buf1[strlen(buf1) - 1] = 0;
@@ -197,6 +198,15 @@ BOOL InitListViewImageLists(HWND hWndListView, int size, char c_dir[MAX_PATH]) {
     ListView_SetImageList(hWndListView, hSmall, LVSIL_SMALL);
 
     return TRUE;
+}
+
+void ListView_GetSelectedItems(HWND hWndListView, int *selectedItems) {
+    int index = -1;
+    int count = 0;
+    while ((index = ListView_GetNextItem(hWndListView, index, LVNI_SELECTED)) != -1) {
+        selectedItems[count] = index;
+        count++;
+    }
 }
 
 void Viev_List(const char *buf, HWND hList, int i, int j) {
@@ -230,87 +240,26 @@ void FindFile(HWND hList, char c_dir[MAX_PATH]) {
             else Viev_List("Directory", hList, i, 1);
 
             Viev_List(FindFileData.cFileName, hList, i,
-                      0);//выз. ф-ция Viev_List передаем туда наиденый фаил ,и HWND ListBox и итератор i++,
-            ++i;
-        } while (FindNextFile(hFind, &FindFileData) != 0);
-
-        FindClose(hFind); //закрываем работу поиска фаилов
-        InitListViewImageLists(hList, i, c_dir);//тут уже передаем HWND ListBox, и кол-во фаилов
-    }
-}
-
-DWORD Crc8(DWORD *pcBlock, unsigned int len) {
-    DWORD crc = 0xFF;
-    unsigned int i;
-
-    while (len--) {
-        crc ^= *pcBlock++;
-
-        for (i = 0; i < 8; i++)
-            crc = crc & 0x80 ? (crc << 1) ^ 0x31 : crc << 1;
-    }
-
-    return crc;
-}
-
-DWORD GetCheckSum(char filename[MAX_PATH]) {
-    HANDLE f;
-    DWORD fsize, freal, res_crc;
-    DWORD buf[500];
-    void *p;
-
-    f = CreateFile(filename, GENERIC_READ | GENERIC_WRITE,
-            /*FILE_SHARE_READ*/0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
-                   0);
-
-    long long nFileLen = 0;
-    if (f != INVALID_HANDLE_VALUE) {
-
-        DWORD dwSizeHigh = 0, dwSizeLow = 0;
-        dwSizeLow = GetFileSize(f, &dwSizeHigh);
-        nFileLen = (dwSizeHigh * (MAXDWORD + 1)) + dwSizeLow;
-
-        SetFilePointer(f, nFileLen / 2, NULL, FILE_BEGIN);
-        fsize = nFileLen - 1 - SetFilePointer(f, 0, 0, FILE_CURRENT);
-
-        if (fsize > 500) fsize = 500;
-        ReadFile(f, buf, fsize, &freal, NULL);
-        CloseHandle(f);
-        p = &buf;
-        res_crc = Crc8(buf, fsize);
-    }
-    return res_crc;
-}
-
-LPCTSTR SumCrcFile(char c_dir[MAX_PATH]) {
-    i = 0;
-    char dir1[MAX_PATH];
-    DWORD sum;
-
-    WIN32_FIND_DATA FindFileData;
-    HANDLE hFind;
-
-    hFind = FindFirstFile(c_dir, &FindFileData);
-    if (hFind == INVALID_HANDLE_VALUE) {
-        MessageBox(0, "Error", "Not found", MB_OK | MB_ICONWARNING);
-    } else {
-        do {
-            int k = 0;
-            strcpy(dir1, c_dir);
-            dir1[strlen(dir1) - 1] = 0;
-            strcat(dir1, FindFileData.cFileName);
-            //MessageBox(0, dir1, "",0 );
-
-            if ((FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(dir1)) != FILE_ATTRIBUTE_DIRECTORY) {
-                break;
-            }
-
+                      0);
             ++i;
         } while (FindNextFile(hFind, &FindFileData) != 0);
 
         FindClose(hFind);
+        InitListViewImageLists(hList, i, c_dir);
     }
-    return dir1;
+}
+
+bool ShowCreateFileDialog(HWND hWnd) {
+    ZeroMemory(&ofn, sizeof(OPENFILENAME));
+    ofn.lStructSize = sizeof(OPENFILENAME);
+    ofn.hwndOwner = hWnd;
+    ofn.lpstrFilter = "Text Files (*.txt)\0*.txt\0All Files (*.*)\0*.*\0";
+    ofn.lpstrFile = szFileName;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrTitle = "Create Text File";
+    ofn.Flags = OFN_EXPLORER | OFN_PATHMUSTEXIST | OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
+
+    return GetSaveFileName(&ofn);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -332,60 +281,152 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_COMMAND: {
             switch (LOWORD(wParam)) {
+                case IDM_CREATE: {
+                    if (ShowCreateFileDialog(hwnd)) {
+                        if (PathFindExtension(szFileName) == NULL ||
+                            _stricmp(PathFindExtension(szFileName), ".txt") != 0) {
+                            strcat(szFileName, ".txt");
+                        }
+                        HANDLE hFile = CreateFile(szFileName, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL,
+                                                  NULL);
+                        if (hFile != INVALID_HANDLE_VALUE) {
+                            CloseHandle(hFile);
+                            HWND activeListView = (GetFocus() == hListView_1) ? hListView_1 : hListView_2;
+                            char *targetDir = (activeListView == hListView_1) ? dir : dir1;
+                            FindFile(activeListView, targetDir);
+                        } else {
+                            MessageBox(hwnd, "Failed to create the file.", "Error", MB_ICONERROR | MB_OK);
+                        }
+                    }
+                    return 0;
+                }
                 case IDM_COPY: {
-                    char cm_dir_from[MAX_PATH];
-                    char cm_dir_to[MAX_PATH], cm_dir_to_[MAX_PATH];
-                    strcpy(cm_dir_from, dir);
-                    cm_dir_from[strlen(cm_dir_from) - 1] = 0;
-                    strcat(cm_dir_from, copy_buf1);
-                    //MessageBox(0, cm_dir_from, "sg",0);
-                    strcpy(cm_dir_to, dir1);
-                    strcpy(cm_dir_to_, dir1);
-                    cm_dir_to[strlen(cm_dir_to) - 1] = 0;
-                    //MessageBox(0, cm_dir_to, "sg",0);
-                    strcat(cm_dir_to, copy_buf1);
+                    HWND activeListView = (GetFocus() == hListView_1) ? hListView_1 : hListView_2;
+                    int itemCount = ListView_GetSelectedCount(activeListView);
 
-                    CopyFile(cm_dir_from, cm_dir_to, FALSE);
-                    MessageBox(0, "Copy is completed.", "", 0);
-                    FindFile(hListView_2, cm_dir_to_);
+                    if (itemCount > 0) {
+                        int *selectedItems = new int[itemCount];
+                        ListView_GetSelectedItems(activeListView, selectedItems);
+                        char *targetDir = (activeListView == hListView_1) ? dir : dir1;
+
+                        for (int i = 0; i < itemCount; i++) {
+                            LVITEM lvItem;
+                            lvItem.iItem = selectedItems[i];
+                            lvItem.iSubItem = 0;
+                            lvItem.mask = LVIF_TEXT;
+                            lvItem.pszText = copy_buf1;
+                            lvItem.cchTextMax = sizeof(copy_buf1);
+
+                            if (ListView_GetItem(activeListView, &lvItem)) {
+                                char cm_dir_from[MAX_PATH];
+                                char cm_dir_to[MAX_PATH], cm_dir_to_[MAX_PATH];
+                                strcpy(cm_dir_from, targetDir);
+                                cm_dir_from[strlen(cm_dir_from) - 1] = 0;
+                                strcat(cm_dir_from, copy_buf1);
+
+                                char *otherTargetDir = (activeListView == hListView_1) ? dir1 : dir;
+
+                                strcpy(cm_dir_to, otherTargetDir);
+                                strcpy(cm_dir_to_, otherTargetDir);
+                                cm_dir_to[strlen(cm_dir_to) - 1] = 0;
+                                strcat(cm_dir_to, copy_buf1);
+
+                                CopyFile(cm_dir_from, cm_dir_to, FALSE);
+                            }
+                        }
+
+                        delete[] selectedItems;
+
+                        FindFile(activeListView, targetDir);
+
+                        HWND otherListView = (activeListView == hListView_1) ? hListView_2 : hListView_1;
+                        char *otherTargetDir = (activeListView == hListView_1) ? dir1 : dir;
+                        FindFile(otherListView, otherTargetDir);
+                    }
                     return 0;
                 }
                 case IDM_DEL: {
-                    char cm_dir_from[MAX_PATH], cm_dir_from_[MAX_PATH];
-                    strcpy(cm_dir_from, dir);
-                    strcpy(cm_dir_from_, dir);
-                    cm_dir_from[strlen(cm_dir_from) - 1] = 0;
-                    strcat(cm_dir_from, copy_buf1);
-                    DeleteFile(cm_dir_from);
-                    MessageBox(0, "File is deleted.", "", 0);
-                    FindFile(hListView_1, cm_dir_from_);
+                    HWND activeListView = (GetFocus() == hListView_1) ? hListView_1 : hListView_2;
+                    int itemCount = ListView_GetSelectedCount(activeListView);
+
+                    if (itemCount > 0) {
+                        int *selectedItems = new int[itemCount];
+                        ListView_GetSelectedItems(activeListView, selectedItems);
+
+                        for (int i = 0; i < itemCount; i++) {
+                            LVITEM lvItem;
+                            lvItem.iItem = selectedItems[i];
+                            lvItem.iSubItem = 0;
+                            lvItem.mask = LVIF_TEXT;
+                            lvItem.pszText = copy_buf1;
+                            lvItem.cchTextMax = sizeof(copy_buf1);
+
+                            if (ListView_GetItem(activeListView, &lvItem)) {
+                                char cm_dir_from[MAX_PATH];
+                                char cm_dir_to[MAX_PATH], cm_dir_to_[MAX_PATH];
+                                strcpy(cm_dir_from, dir);
+                                cm_dir_from[strlen(cm_dir_from) - 1] = 0;
+                                strcat(cm_dir_from, copy_buf1);
+
+                                strcpy(cm_dir_to, dir1);
+                                strcpy(cm_dir_to_, dir1);
+                                cm_dir_to[strlen(cm_dir_to) - 1] = 0;
+                                strcat(cm_dir_to, copy_buf1);
+
+                                DeleteFile(cm_dir_from);
+                            }
+                        }
+
+                        delete[] selectedItems;
+
+                        FindFile(hListView_1, dir);
+                        FindFile(hListView_2, dir1);
+                    }
                     return 0;
                 }
-                case IDM_CRC: {
-                    char cm_dir_from[MAX_PATH];
-                    char cm_dir_to[MAX_PATH], cm_dir_to_[MAX_PATH];
-                    strcpy(cm_dir_from, dir);
-                    cm_dir_from[strlen(cm_dir_from) - 1] = 0;
-                    strcat(cm_dir_from, copy_buf1);
+                case IDM_MOVE: {
+                    HWND activeListView = (GetFocus() == hListView_1) ? hListView_1 : hListView_2;
 
-                    // Create the destination folder path
-                    strcpy(cm_dir_to, dir1);
-                    strcpy(cm_dir_to_, dir1);
-                    cm_dir_to[strlen(cm_dir_to) - 1] = 0;
-                    strcat(cm_dir_to, copy_buf1);
+                    int itemCount = ListView_GetSelectedCount(activeListView);
 
-                    // Perform the file copy operation
-                    if (CopyFile(cm_dir_from, cm_dir_to, FALSE)) {
-                        // File copied successfully, now delete it from the source folder
-                        if (DeleteFile(cm_dir_from)) {
-                            MessageBox(0, "File is moved.", "", 0);
-                            FindFile(hListView_1, cm_dir_from);
-                            FindFile(hListView_2, cm_dir_to_);
-                        } else {
-                            MessageBox(0, "Failed to delete the file from the source folder.", "Error", MB_OK | MB_ICONERROR);
+                    if (itemCount > 0) {
+                        int *selectedItems = new int[itemCount];
+                        ListView_GetSelectedItems(activeListView, selectedItems);
+
+                        char *targetDir = (activeListView == hListView_1) ? dir : dir1;
+
+                        for (int i = 0; i < itemCount; i++) {
+                            LVITEM lvItem;
+                            lvItem.iItem = selectedItems[i];
+                            lvItem.iSubItem = 0;
+                            lvItem.mask = LVIF_TEXT;
+                            lvItem.pszText = copy_buf1;
+                            lvItem.cchTextMax = sizeof(copy_buf1);
+
+                            if (ListView_GetItem(activeListView, &lvItem)) {
+                                char cm_dir_from[MAX_PATH];
+                                char cm_dir_to[MAX_PATH], cm_dir_to_[MAX_PATH];
+                                strcpy(cm_dir_from, targetDir);
+                                cm_dir_from[strlen(cm_dir_from) - 1] = 0;
+                                strcat(cm_dir_from, copy_buf1);
+
+                                char *otherTargetDir = (activeListView == hListView_1) ? dir1 : dir;
+
+                                strcpy(cm_dir_to, otherTargetDir);
+                                strcpy(cm_dir_to_, otherTargetDir);
+                                cm_dir_to[strlen(cm_dir_to) - 1] = 0;
+                                strcat(cm_dir_to, copy_buf1);
+
+                                if (CopyFile(cm_dir_from, cm_dir_to, FALSE)) {
+                                    DeleteFile(cm_dir_from);
+                                }
+                            }
                         }
-                    } else {
-                        MessageBox(0, "Failed to copy the file to the destination folder.", "Error", MB_OK | MB_ICONERROR);
+
+                        delete[] selectedItems;
+
+                        FindFile(hListView_1, dir);
+                        FindFile(hListView_2, dir1);
                     }
                     return 0;
                 }
@@ -428,10 +469,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     return 0;
             }
         }
-
         case WM_NOTIFY: {
-
-            if (((lpnmHdr->idFrom == ID_LISTVIEW_1) /*|| (lpnmHdr->idFrom == ID_LISTVIEW_2)*/) &&
+            if ((lpnmHdr->idFrom == ID_LISTVIEW_1) &&
                 (lpnmHdr->code == NM_CLICK)) {
                 ListView_GetItemText(lpnmHdr->hwndFrom, pnmLV->iItem, pnmLV->iSubItem, buf1, MAX_PATH);
                 strcpy(copy_buf1, buf1);
@@ -440,19 +479,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 strcpy(_dir, dir);
                 _dir[strlen(_dir) - 1] = 0;
                 strcat(_dir, buf1);
-
-                if ((FILE_ATTRIBUTE_DIRECTORY & GetFileAttributes(_dir)) == FILE_ATTRIBUTE_DIRECTORY) {
-                    SendMessage(hToolBar, TB_SETSTATE, (WPARAM) IDM_COPY, (LPARAM) MAKELONG(0, 0));
-                    SendMessage(hToolBar, TB_SETSTATE, (WPARAM) IDM_DEL, (LPARAM) MAKELONG(0, 0));
-                } else {
-                    SendMessage(hToolBar, TB_SETSTATE, (WPARAM) IDM_COPY, (LPARAM) MAKELONG(TBSTATE_ENABLED, 0));
-                    SendMessage(hToolBar, TB_SETSTATE, (WPARAM) IDM_DEL, (LPARAM) MAKELONG(TBSTATE_ENABLED, 0));
-                }
             }
             if (((lpnmHdr->idFrom == ID_LISTVIEW_1) || (lpnmHdr->idFrom == ID_LISTVIEW_2)) &&
                 (lpnmHdr->code == NM_DBLCLK)) {
-                // Копируем строку в буфер из ячейки ListView (pnmLV->iItem - номер строки;
-                // pnmLV->iSubItem - номер столбца)
                 ListView_GetItemText(lpnmHdr->hwndFrom, pnmLV->iItem, pnmLV->iSubItem, buf1, MAX_PATH);
 
                 if (lpnmHdr->idFrom == ID_LISTVIEW_1) {
@@ -504,7 +533,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                         s = buf1[i];
                         if (s == ".") k = i;
                     }
-
                     if ((k != 0) && (k != 1)) {
                         ShellExecute(0, "open", _dir1, NULL, NULL, SW_SHOWNORMAL);
                     } else {
@@ -535,28 +563,22 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         case WM_CREATE: {
             hToolBar = CreateSimpleToolbar(hwnd);
-
-
-            hLabel_3 = CreateWindow("static", "way1",
+            hLabel_3 = CreateWindow("static", "path_left",
                                     WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                     3, 57 + y, 400, 16,
                                     hwnd, (HMENU) ID_LABEL_3, hInstance, NULL);
-            hLabel_4 = CreateWindow("static", "way2",
+            hLabel_4 = CreateWindow("static", "path_right",
                                     WS_CHILD | WS_VISIBLE | WS_TABSTOP,
                                     453, 57 + y, 400, 16,
                                     hwnd, (HMENU) ID_LABEL_4, hInstance, NULL);
-
             hComboBox_1 = CreateWindow("ComboBox", NULL,
                                        WS_CHILD | WS_VISIBLE | WS_VSCROLL | CBS_DROPDOWN | CBS_SORT,
                                        3, 33 + y, 100, 110, hwnd,
                                        (HMENU) ID_COMBOBOX_1, hInstance, NULL);
-
-
             hComboBox_2 = CreateWindow("ComboBox", NULL,
                                        WS_CHILD | WS_VISIBLE | WS_VSCROLL | CBS_DROPDOWN | CBS_SORT,
                                        453, 33 + y, 100, 110, hwnd,
                                        (HMENU) ID_COMBOBOX_2, hInstance, NULL);
-
             hListView_1 = CreateWindow(WC_LISTVIEW, NULL,
                                        LVS_REPORT | WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | LVS_AUTOARRANGE,
                                        0, 60 + y + 15, 450, 500, hwnd,
@@ -576,21 +598,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             SendMessage(hComboBox_2, CB_SETCURSEL, 1, 0);
 
             AddColToListView("Name", 1, 100);
-            /*AddColToListView("Тип", 2, 50);
-            AddColToListView("Размер", 3, 50);*/
 
             SetWindowText(hLabel_3, dir);
             FindFile(hListView_1, dir);
             SetWindowText(hLabel_3, dir);
 
-
             FindFile(hListView_2, dir);
             SetWindowText(hLabel_4, dir1);
 
-
             return 0;
         }
-
         case WM_DESTROY: {
             DestroyWindow(hListView_1);
             DestroyWindow(hListView_2);
@@ -605,9 +622,5 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
     }
-
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
-//---------------------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------------------
