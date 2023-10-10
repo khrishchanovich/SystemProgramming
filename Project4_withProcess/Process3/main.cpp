@@ -2,6 +2,27 @@
 #include <vector>
 #include <windows.h>
 
+DWORD WINAPI ThreadFunction(LPVOID lpParam) {
+    // Код для выполнения внутри потока
+    std::vector<int>* numbers = static_cast<std::vector<int>*>(lpParam);
+
+    int min = (*numbers)[0];
+    for (int num : *numbers) {
+        if (num < min) {
+            min = num;
+        }
+    }
+
+    HANDLE hSemaphore = OpenSemaphore(SYNCHRONIZE, FALSE, "MySemaphore"); // Открываем семафор
+    WaitForSingleObject(hSemaphore, INFINITE); // Ожидаем разрешения семафора
+
+    std::cout << "Min: " << min << std::endl;
+
+    ReleaseSemaphore(hSemaphore, 1, NULL); // Уменьшаем счетчик семафора
+
+    return 0;
+}
+
 int main() {
     // Измеряем начало выполнения участка кода
     LARGE_INTEGER startTime, endTime, frequency;
@@ -15,19 +36,14 @@ int main() {
         numbers[i] = i + 1;
     }
 
-    int min = numbers[0];
-    for (int num : numbers) {
-        if (num < min) {
-            min = num;
-        }
-    }
+    // Создаем поток
+    HANDLE hThread = CreateThread(NULL, 0, ThreadFunction, &numbers, 0, NULL);
 
-    HANDLE hSemaphore = OpenSemaphore(SYNCHRONIZE, FALSE, "MySemaphore"); // Открываем семафор
-    WaitForSingleObject(hSemaphore, INFINITE); // Ожидаем разрешения семафора
+    // Дожидаемся завершения потока
+    WaitForSingleObject(hThread, INFINITE);
 
-    std::cout << "Min: " << min << std::endl;
-
-    ReleaseSemaphore(hSemaphore, 1, NULL); // Уменьшаем счетчик семафора
+    // Закрываем дескриптор потока
+    CloseHandle(hThread);
 
     // Измеряем окончание выполнения участка кода
     QueryPerformanceCounter(&endTime);

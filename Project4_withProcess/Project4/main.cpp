@@ -1,13 +1,8 @@
 #include <vector>
 #include <windows.h>
+#include <iostream>
 
 int main() {
-    const size_t numNumbers = 1000000;
-    std::vector<int> numbers(numNumbers);
-    for (size_t i = 0; i < numNumbers; ++i) {
-        numbers[i] = i + 1;
-    }
-
     // Создаем разные процессы для разных задач
     STARTUPINFO si1, si2, si3;
     PROCESS_INFORMATION pi1, pi2, pi3;
@@ -58,12 +53,9 @@ int main() {
                   &pi3);             // информация о процессе
 
     // УСТАНОВИТЬ ПРИОРИТЕТ ОТ 1 ДО 3
-    // SetPriorityClass(pi1.hProcess, ABOVE_NORMAL_PRIORITY_CLASS);
-
-    // Устанавливаем приоритеты процессов
-    SetPriorityClass(pi1.hProcess, ABOVE_NORMAL_PRIORITY_CLASS);
-    SetPriorityClass(pi3.hProcess, HIGH_PRIORITY_CLASS);
-    SetPriorityClass(pi2.hProcess, NORMAL_PRIORITY_CLASS);
+    if (!SetPriorityClass(pi2.hProcess, ABOVE_NORMAL_PRIORITY_CLASS)) {
+        std::cerr << "Failed to set priority." << std::endl;
+    }
 
     // Ждем завершения процессов
     WaitForSingleObject(pi1.hProcess, INFINITE);

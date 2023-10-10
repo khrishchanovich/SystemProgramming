@@ -2,6 +2,25 @@
 #include <vector>
 #include <windows.h>
 
+DWORD WINAPI ThreadFunction(LPVOID lpParam) {
+    // Код для выполнения внутри потока
+    std::vector<int>* numbers = static_cast<std::vector<int>*>(lpParam);
+
+    long long sum = 0;
+    for (int num : *numbers) {
+        sum += num;
+    }
+
+    HANDLE hMutex = CreateMutex(NULL, FALSE, "MyMutex"); // Создаем мьютекс
+    WaitForSingleObject(hMutex, INFINITE); // Ожидаем разблокировки мьютекса
+
+    std::cout << "Sum: " << sum << std::endl;
+
+    ReleaseMutex(hMutex); // Освобождаем мьютекс
+
+    return 0;
+}
+
 int main() {
     // Измеряем начало выполнения участка кода
     LARGE_INTEGER startTime, endTime, frequency;
@@ -15,17 +34,14 @@ int main() {
         numbers[i] = i + 1;
     }
 
-    long long sum = 0;
-    for (int num : numbers) {
-        sum += num;
-    }
+    // Создаем поток
+    HANDLE hThread = CreateThread(NULL, 0, ThreadFunction, &numbers, 0, NULL);
 
-    HANDLE hMutex = CreateMutex(NULL, FALSE, "MyMutex"); // Создаем мьютекс
-    WaitForSingleObject(hMutex, INFINITE); // Ожидаем разблокировки мьютекса
+    // Дожидаемся завершения потока
+    WaitForSingleObject(hThread, INFINITE);
 
-    std::cout << "Sum: " << sum << std::endl;
-
-    ReleaseMutex(hMutex); // Освобождаем мьютекс
+    // Закрываем дескриптор потока
+    CloseHandle(hThread);
 
     // Измеряем окончание выполнения участка кода
     QueryPerformanceCounter(&endTime);
