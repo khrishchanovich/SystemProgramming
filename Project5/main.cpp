@@ -54,17 +54,6 @@ bool UninstallProgram(const std::string& programName) {
     std::getline(std::cin, uninstallPath);
 
     if (!uninstallPath.empty()) {
-        // Update UninstallString in the registry
-        HKEY hUninstallKey;
-        if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", 0, KEY_WRITE, &hUninstallKey) == ERROR_SUCCESS) {
-            HKEY hAppKey;
-            if (RegOpenKeyEx(hUninstallKey, programName.c_str(), 0, KEY_WRITE, &hAppKey) == ERROR_SUCCESS) {
-                RegSetValueEx(hAppKey, "UninstallString", 0, REG_SZ, (const BYTE*)uninstallPath.c_str(), uninstallPath.size());
-                RegCloseKey(hAppKey);
-            }
-            RegCloseKey(hUninstallKey);
-        }
-
         // Run the uninstaller
         SHELLEXECUTEINFO ShExecInfo = {0};
         ShExecInfo.cbSize = sizeof(SHELLEXECUTEINFO);
@@ -75,15 +64,29 @@ bool UninstallProgram(const std::string& programName) {
         if (ShellExecuteEx(&ShExecInfo) == TRUE) {
             WaitForSingleObject(ShExecInfo.hProcess, INFINITE);
             CloseHandle(ShExecInfo.hProcess);
+        } else {
+            std::cout << "Failed to run the uninstaller." << std::endl;
+            return false;
         }
 
-        // Remove the program from the registry
-        if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", 0, KEY_WRITE, &hUninstallKey) == ERROR_SUCCESS) {
-            if (RegDeleteKey(hUninstallKey, programName.c_str()) == ERROR_SUCCESS) {
+        // Ask the user if they want to delete the program from the registry
+        std::cout << "Do you want to delete the program from the registry (yes/no)? ";
+        std::string answer;
+        std::cin >> answer;
+
+        if (answer == "yes" || answer == "Yes" || answer == "YES") {
+            // Update UninstallString in the registry
+            HKEY hUninstallKey;
+            if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall", 0, KEY_WRITE, &hUninstallKey) == ERROR_SUCCESS) {
+                if (RegDeleteKey(hUninstallKey, programName.c_str()) == ERROR_SUCCESS) {
+                    RegCloseKey(hUninstallKey);
+                    std::cout << "Program uninstalled and removed from the registry." << std::endl;
+                    return true;
+                }
                 RegCloseKey(hUninstallKey);
-                return true;
             }
-            RegCloseKey(hUninstallKey);
+        } else {
+            std::cout << "Program uninstalled but not removed from the registry." << std::endl;
         }
     }
     return false;
@@ -113,40 +116,45 @@ void ListInstalledPrograms() {
 }
 
 int main() {
-    int choice;
-    std::string programName;
-    std::string installerPath;
+    while (true) {
+        int choice;
+        std::string programName;
+        std::string installerPath;
 
-    std::cout << "1. List installed programs\n";
-    std::cout << "2. Register a new program\n";
-    std::cout << "3. Unregister a program\n";
-    std::cout << "Enter your choice: ";
-    std::cin >> choice;
+        std::cout << "1. List installed programs\n";
+        std::cout << "2. Register a new program\n";
+        std::cout << "3. Unregister a program\n";
+        std::cout << "4. Exit\n";
+        std::cout << "Enter your choice: ";
+        std::cin >> choice;
 
-    if (choice == 1) {
-        ListInstalledPrograms();
-    } else if (choice == 2) {
-        std::cout << "Enter the program name: ";
-        std::cin.ignore();
-        std::getline(std::cin, programName);
+        if (choice == 1) {
+            ListInstalledPrograms();
+        } else if (choice == 2) {
+            std::cout << "Enter the program name: ";
+            std::cin.ignore();
+            std::getline(std::cin, programName);
 
-        std::cout << "Enter the installer path (e.g., C:\\Path\\To\\Installer.exe): ";
-        std::getline(std::cin, installerPath);
+            std::cout << "Enter the installer path (e.g., C:\\Path\\To\\Installer.exe): ";
+            std::getline(std::cin, installerPath);
 
-        if (RegisterProgram(programName, installerPath)) {
-            std::cout << "Program registered successfully!" << std::endl;
-        } else {
-            std::cout << "Failed to register the program." << std::endl;
-        }
-    } else if (choice == 3) {
-        std::cout << "Enter the program name to uninstall: ";
-        std::cin.ignore();
-        std::getline(std::cin, programName);
+            if (RegisterProgram(programName, installerPath)) {
+                std::cout << "Program registered successfully!" << std::endl;
+            } else {
+                std::cout << "Failed to register the program." << std::endl;
+            }
+        } else if (choice == 3) {
+            std::cout << "Enter the program name to uninstall: ";
+            std::cin.ignore();
+            std::getline(std::cin, programName);
 
-        if (UninstallProgram(programName)) {
-            std::cout << "Program uninstalled successfully!" << std::endl;
-        } else {
-            std::cout << "Failed to uninstall the program." << std::endl;
+            if (UninstallProgram(programName)) {
+                std::cout << "Program uninstalled successfully!" << std::endl;
+            } else {
+                std::cout << "Failed to uninstall the program." << std::endl;
+            }
+        } else if (choice == 4) {
+            break;
         }
     }
 
