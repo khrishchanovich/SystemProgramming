@@ -4,16 +4,14 @@
 #include <fstream>
 #include <string>
 
-// Отправка файлов
 void SendFile(SOCKET clientSocket, const std::string& filePath) {
     char buffer[1024];
-    int bytesRead; // Байты, считанные из файла
+    int bytesRead;
 
     std::string fileName = filePath.substr(filePath.find_last_of("\\/") + 1);
 
     // Отправляем команду "UPLOAD" серверу
     std::string uploadCommand = "UPLOAD";
-    // Команда возвращает -1 в случае ошибки
     if (send(clientSocket, uploadCommand.c_str(), uploadCommand.size(), 0) < 0) {
         std::cerr << "Error sending the upload command." << std::endl;
         return;
@@ -26,7 +24,6 @@ void SendFile(SOCKET clientSocket, const std::string& filePath) {
     }
 
     std::ifstream fileStream(filePath, std::ios::in | std::ios::binary);
-
     if (!fileStream.is_open()) {
         std::cerr << "Error opening file for reading: " << filePath << std::endl;
         return;
@@ -76,8 +73,8 @@ void ReceiveFile(SOCKET clientSocket) {
         while ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) > 0) {
             receivedFile.write(buffer, bytesRead);
         }
-        receivedFile.close();
         std::cout << "Received and saved file: " << fileNameToDownload << std::endl;
+        receivedFile.close();
     }
 }
 
@@ -89,7 +86,6 @@ int main() {
     }
 
     SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
-    // Протокол TCP, конкретный протокол не указан, что будет использован tcp
     if (clientSocket == INVALID_SOCKET) {
         std::cerr << "Error creating a socket." << std::endl;
         WSACleanup();
@@ -97,7 +93,7 @@ int main() {
     }
 
     sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET; // Использование айпиви4
+    serverAddr.sin_family = AF_INET;
     serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     serverAddr.sin_port = htons(12345);
 
@@ -108,7 +104,7 @@ int main() {
         return 1;
     }
 
-    std::string name = "Client1"; // Уникальное имя клиента
+    std::string name = "Client2"; // Уникальное имя клиента
     send(clientSocket, name.c_str(), name.size(), 0);
 
     std::cout << "Choose an option:\n1. Upload a file to the server\n2. Download a file from the server\n";

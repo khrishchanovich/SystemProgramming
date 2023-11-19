@@ -3,9 +3,97 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <vector>
+
+// Структура для взаимодейтсвия с клиентом
+struct ClientInfo {
+    std::string name;
+    SOCKET socket;
+};
+
+std::vector<ClientInfo> clients;
+
+// Обработка взаимодействий с клиентом
+void HandleClient(ClientInfo client) {
+    char buffer[1024]; // Буфер для хранения данных, прочитанных из сокета
+    int bytesRead; // Отслеживание количества байтов, полученных из сокета
+
+    while (true) {
+        bytesRead = recv(client.socket, buffer, sizeof(buffer), 0); // считывание данных из сокета
+        if (bytesRead <= 0) {
+            // Входим в ветвление, если клиент отключился, произошла ошибка в вводе запроса клиентом
+            for (auto it = clients.begin(); it != clients.end(); ++it) {
+                if (it->socket == client.socket) {
+                    std::cout << "Client " << it->name << " disconnected." << std::endl;
+                    closesocket(client.socket);
+                    clients.erase(it);
+                    break;
+                }
+            }
+            return;
+        }
+
+        // Определяем тип команды (UPLOAD или DOWNLOAD)
+        std::string command(buffer, bytesRead);
+
+        if (command == "UPLOAD") {
+            // Получаем имя файла
+            bytesRead = recv(client.socket, buffer, sizeof(buffer), 0);
+            if (bytesRead <= 0) {
+                std::cerr << "Error receiving file name." << std::endl;
+                return;
+            }
+
+            std::string fileName(buffer, bytesRead);
+
+            // Получаем и сохраняем файл
+            std::ofstream receivedFile(fileName, std::ios::out | std::ios::binary);
+
+            while ((bytesRead = recv(client.socket, buffer, sizeof(buffer), 0)) > 0) {
+                receivedFile.write(buffer, bytesRead);
+            }
+            receivedFile.close();
+            std::cout << "Received file from " << client.name << ": " << fileName << std::endl;
+
+        } else if (command == "DOWNLOAD") {
+            // Получаем имя файла для отправки
+            bytesRead = recv(client.socket, buffer, sizeof(buffer), 0);
+
+            if (bytesRead <= 0) {
+                std::cerr << "Error receiving file name." << std::endl;
+                return;
+            }
+            std::string fileName(buffer, bytesRead);
+
+            // Отправить файл
+            std::ifstream fileStream(fileName, std::ios::in | std::ios::binary);
+
+            if (fileStream.is_open()) {
+                while n       (!fileStream.eof()) {
+                    fileStream.read(buffer, sizeof(buffer));
+                    bytesRead = static_cast<int>(fileStream.gcount());
+
+                    if (bytesRead > 0) {
+                        send(client.socket, buffer, bytesRead, 0);
+                    }
+                }
+                fileStream.close();
+                std::cout << "Sent file to " << client.name << ": " << fileName << std::endl;
+            } else {
+                std::cerr << "Error opening file for sending: " << fileName << std::endl;
+            }
+        }
+    }
+}
+
+DWORD WINAPI HandleClientThread(LPVOID lpParam) {
+    ClientInfo* pClient = reinterpret_cast<ClientInfo*>(lpParam);
+    HandleClient(*pClient);
+    return 0;
+}
 
 int main() {
-    WSADATA wsaData;
+    WSADATA wsaData; // Инициализация сокета
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         std::cerr << "Error initializing Winsock." << std::endl;
         return 1;
@@ -14,15 +102,16 @@ int main() {
     SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (serverSocket == INVALID_SOCKET) {
         std::cerr << "Error creating a socket." << std::endl;
-        WSACleanup();
+        WSACleanup(); // Завершение работы библиотеки
         return 1;
     }
 
-    sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(12345); // Замените на желаемый порт
+    sockaddr_in serverAddr; // Адрес сервера для прослушивания входящих сооединений
+    serverAddr.sin_family = AF_INET; // Семейство адресов для сервера
+    serverAddr.sin_addr.s_addr = INADDR_ANY; // Определение IP адреса
+    serverAddr.sin_port = htons(12345); // big-endian сетевой порядок байтов
 
+    // Привязка к заданному адресу и порту
     if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
         std::cerr << "Error binding the socket to a port." << std::endl;
         closesocket(serverSocket);
@@ -30,7 +119,8 @@ int main() {
         return 1;
     }
 
-    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
+    // Настройка серверного сокета на прослушивание входящих соединений
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) { // макс. длина очереди ожидания соединения
         std::cerr << "Error listening to the socket." << std::endl;
         closesocket(serverSocket);
         WSACleanup();
@@ -40,84 +130,33 @@ int main() {
     std::cout << "The server is running and listening on port 12345." << std::endl;
 
     while (true) {
-        sockaddr_in clientAddr;
+        sockaddr_in clientAddr; // Адрес клиента для прослушивания входящих сообщений
         int clientAddrSize = sizeof(clientAddr);
         SOCKET clientSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientAddrSize);
+        // заполнение структуры информацией о клиенте (IP адрес и порт)
 
         if (clientSocket != INVALID_SOCKET) {
-            std::cout << "A client with IP address has connected: " << inet_ntoa(clientAddr.sin_addr) << std::endl;
+            ClientInfo newClient;
+            newClient.socket = clientSocket;
 
-            char buffer[1024];
-            int bytesRead;
+            char nameBuffer[1024];
+            int nameBytes = recv(clientSocket, nameBuffer, sizeof(nameBuffer), 0);
+            if (nameBytes > 0) {
+                nameBuffer[nameBytes] = '\0';
+                newClient.name = nameBuffer;
+            }
 
-            // Получаем команду от клиента (имя файла или действие)
-            bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
-            if (bytesRead > 0) {
-                buffer[bytesRead] = '\0';
-                std::string command = buffer;
+            std::cout << "Client " << newClient.name << " connected." << std::endl;
+            clients.push_back(newClient);
 
-                if (command == "UPLOAD") {
-                    // Клиент хочет отправить файл на сервер
-                    // Получаем имя файла
-                    bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
-                    if (bytesRead > 0) {
-                        buffer[bytesRead] = '\0';
-                        std::string fileName = buffer;
-
-                        // Полный путь к папке проекта серверной части, куда будут сохраняться файлы
-                        std::string serverPath = "C:\\Users\\Asus\\CLionProjects\\ServerPart\\files\\"; // Замените на желаемый путь
-                        serverPath += fileName;
-
-                        std::ofstream fileStream(serverPath, std::ios::out | std::ios::binary);
-
-                        if (!fileStream.is_open()) {
-                            std::cerr << "Error opening file for writing: " << fileName << std::endl;
-                            closesocket(clientSocket);
-                        } else {
-                            while ((bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0)) > 0) {
-                                fileStream.write(buffer, bytesRead);
-                            }
-                            fileStream.close();
-                            std::cout << "Received and saved file: " << fileName << std::endl;
-                            closesocket(clientSocket);
-                        }
-                    }
-                } else if (command == "DOWNLOAD") {
-                    // Клиент хочет скачать файл с сервера
-                    // Получаем имя файла для скачивания
-                    bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
-                    if (bytesRead > 0) {
-                        buffer[bytesRead] = '\0';
-                        std::string fileName = buffer;
-
-                        // Полный путь к файлу, который клиент хочет скачать
-                        std::string filePathToDownload = "C:\\Users\\Asus\\CLionProjects\\ServerPart\\files\\" + fileName;
-
-                        std::ifstream fileToDownload(filePathToDownload, std::ios::in | std::ios::binary);
-                        if (!fileToDownload.is_open()) {
-                            std::cerr << "Error opening file for reading: " << filePathToDownload << std::endl;
-                            closesocket(clientSocket);
-                        } else {
-                            while (!fileToDownload.eof()) {
-                                fileToDownload.read(buffer, sizeof(buffer));
-                                bytesRead = static_cast<int>(fileToDownload.gcount());
-
-                                if (bytesRead > 0) {
-                                    send(clientSocket, buffer, bytesRead, 0);
-                                }
-                            }
-
-                            fileToDownload.close();
-                            std::cout << "Sent file to the client: " << fileName << std::endl;
-                            closesocket(clientSocket);
-                        }
-                    }
-                }
+            HANDLE hThread = CreateThread(NULL, 0, HandleClientThread, &newClient, 0, NULL);
+            if (hThread == NULL) {
+                std::cerr << "Error creating thread." << std::endl;
+                return 1;
             }
         }
     }
 
-    // Закрываем серверный сокет
     closesocket(serverSocket);
     WSACleanup();
 
